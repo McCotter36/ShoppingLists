@@ -1,17 +1,21 @@
 import { StatusBar } from 'expo-status-bar';
 import React, { Component } from 'react';
 import { StyleSheet, Text, View, FlatList, Button } from 'react-native';
-const firebase = require('firebase');
-require('firebase/firestore');
+import firebase from 'firebase';
+import firestore from 'firebase';
 
-class App extends Component{
-  constructor(props) {
-    super(props);
-    this.state={
+// const firebase = require('firebase');
+// require('firebase/firestore');
+
+class App extends React.Component{
+  constructor() {
+    super();
+    this.state = {
       lists: [],
-      uid: '',
+      uid: 0,
       loggedInText: 'Please wait while you are logged in',
     }
+
     //disable warnings for Android
     console.disableYellowBox = true;
 
@@ -25,45 +29,20 @@ class App extends Component{
       appId: "1:417129154008:web:d2e228a2115d03e85f1ead",
       measurementId: "G-J6QKQFD497"
     };
+
     // check if firebase app is initialized - keeps app from initializing twice
     if (!firebase.apps.length) {
       firebase.initializeApp(firebaseConfig);
     } 
-    else {
-      firebase.app();
-    }
-
-    // ======== references shopping lists ===========
-    this.referenceShoppingLists = firebase.firestore().collection('shoppinglists');
-    //create a reference to the active user's documents
-    this.referenceShoppinglistUser = firebase.firestore().collection('shoppinglists').where("uid", "==", this.state.uid);
+    // else {
+    //   firebase.app();
+    // }
     
+    //create a reference to the active user's documents
+    this.referenceShoppinglistUser = null;
     // ===== all lists listener ============
     // this.unsubscribe = this.referenceShoppingLists.onSnapshot(this.onCollectionUpdate);
-    // ===================
-
-    // ====== current user listener ================
-    this.unsubscribeListUser = this.referenceShoppinglistUser.onSnapshot(this.onCollectionUpdate);
-    // ===================
-  }
-
-  componentDidMount() {
-    this.authUnsubscribe = firebase.auth().onAuthStateChanged(async (user) => {
-      if (!user) {
-        await firebase.auth().signInAnonymously();
-      }
-      //update user state with currently active user data
-      this.setState({
-        uid: user.uid,
-        loggedInText: 'Hello There',
-      });
-    });
-  }
-  
-  componentWillUnmount() {
-    // this.unsubscribe();
-    this.authUnsubscribe();
-    this.unsubscribeListUser();
+   
   }
 
   onCollectionUpdate = (querySnapshot) => {
@@ -95,21 +74,53 @@ class App extends Component{
     return (
       <View style={styles.container}>
         <Text style={styles.text}>{this.state.loggedInText}</Text>
-        <Text>{this.state.uid}</Text>
           <FlatList
             data={this.state.lists}
-            renderItem={
-              ({ item }) => <Text>{item.name}: {item.items} {item.uid}</Text>
+            renderItem={({ item }) => 
+              <Text>{item.name}: {item.items}</Text>
             }
             keyExtractor={(item, index) => index.toString()}
           />
           <Button 
-          title='Add List'
+          title="Add List"
+          // style={styles.button}
           onPress={() => {this.addList()}}
           />
       </View>
     );
   };
+
+
+  componentDidMount() {
+    // ======== references shopping lists ===========
+    this.referenceShoppingLists = firebase.firestore().collection('shoppinglists');
+
+    // listen to authentication events
+    this.authUnsubscribe = firebase.auth().onAuthStateChanged(async (user) => {
+      if (!user) {
+        await firebase.auth().signInAnonymously();
+      }
+      //update user state with currently active user data
+      this.setState({
+        uid: user.uid,
+        loggedInText: 'Hello There',
+      });
+
+    // create a reference to the active user's documents
+    this.referenceShoppinglistUser = firebase.firestore().collection('shoppinglists').where("uid", "==", this.state.uid);
+    // ====== current user listener ================
+    this.unsubscribeListUser = this.referenceShoppinglistUser.onSnapshot(this.onCollectionUpdate);
+    // ===================
+    });
+  }
+
+  componentWillUnmount() {
+    // this.unsubscribe();
+    // stop listening to authentication
+    this.authUnsubscribe();
+    // stop listening for changes
+    this.unsubscribeListUser();
+  }
 }
 
 const styles = StyleSheet.create({
@@ -124,6 +135,13 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontSize: 30,
   },
+  // button: {
+  //   width: '80%',
+  //   borderRadius: 20,
+  //   flex: 1,
+  //   justifyContent: 'flex-end',
+  //   marginBottom: 10,
+  // }
 });
 
 export default App;
